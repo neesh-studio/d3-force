@@ -11,7 +11,8 @@ export default function() {
       strength = constant(-30),
       strengths,
       distanceMin2 = 1,
-      distanceMax2 = Infinity,
+      distanceMax2 = constant(Infinity),
+      distanceMax2s,
       theta2 = 0.81;
 
   function force(_) {
@@ -24,6 +25,13 @@ export default function() {
     var i, n = nodes.length, node;
     strengths = new Array(n);
     for (i = 0; i < n; ++i) node = nodes[i], strengths[node.index] = +strength(node, i, nodes);
+  }
+
+  function initializeDistanceMax() {
+    if (!nodes) return;
+    var i, n = nodes.length, node;
+    distanceMax2s = new Array(n);
+    for (i = 0; i < n; ++i) node = nodes[i], distanceMax2s[node.index] = +distanceMax2(node, i, nodes);
   }
 
   function accumulate(quad) {
@@ -63,7 +71,7 @@ export default function() {
     // Apply the Barnes-Hut approximation if possible.
     // Limit forces for very close nodes; randomize direction if coincident.
     if (w * w / theta2 < l) {
-      if (l < distanceMax2) {
+      if (l < distanceMax2s[quad.data.index]) {
         if (x === 0) x = jiggle(random), l += x * x;
         if (y === 0) y = jiggle(random), l += y * y;
         if (l < distanceMin2) l = Math.sqrt(distanceMin2 * l);
@@ -74,7 +82,7 @@ export default function() {
     }
 
     // Otherwise, process points directly.
-    else if (quad.length || l >= distanceMax2) return;
+    else if (quad.length || l >= distanceMax2s[quad.data.index]) return;
 
     // Limit forces for very close nodes; randomize direction if coincident.
     if (quad.data !== node || quad.next) {
@@ -94,6 +102,7 @@ export default function() {
     nodes = _nodes;
     random = _random;
     initialize();
+    initializeDistanceMax();
   };
 
   force.strength = function(_) {
@@ -105,7 +114,7 @@ export default function() {
   };
 
   force.distanceMax = function(_) {
-    return arguments.length ? (distanceMax2 = _ * _, force) : Math.sqrt(distanceMax2);
+    return arguments.length ?  (distanceMax2 = typeof _ === "function" ? _ : constant(+_), initializeDistanceMax(), force) : Math.sqrt(distanceMax2);
   };
 
   force.theta = function(_) {
